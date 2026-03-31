@@ -4,21 +4,70 @@
  * Matnni maksimal uzunlikka kesadi
  */
 function truncateLabel(s, max = 52) {
-  const t = String(s);
+  const t = String(s || '');
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
 /**
- * Foydalanuvchini kanallarga a'zo bo'lishga majbur qiluvchi inline keyboard
+ * 🔥 REQUIRED CHANNELS KEYBOARD
+ * - Public → link orqali join
+ * - Private → link + Opened (tracking uchun)
  */
-export function requiredChannelsKeyboard(channels) {
-  const rows = channels.map((ch) => [
+export function requiredChannelsKeyboard(channels = []) {
+  if (!Array.isArray(channels)) channels = [];
+
+  const rows = channels.map((ch, index) => {
+    const title = truncateLabel(ch.title || ch.chatIdOrUsername || 'Channel');
+
+    return [
+      {
+        text: `➕ ${title}`,
+        url: ch.inviteLink, // kanalga kirish
+      },
+      {
+        text: '✔️ Opened',
+        callback_data: `join_${index}`, // 🔥 PRIVATE TRACK
+      },
+    ];
+  });
+
+  // Tekshirish tugmasi
+  rows.push([
     {
-      text: ch.title ? `➕ ${ch.title}` : `➕ ${ch.chatIdOrUsername}`,
-      url: ch.inviteLink,
+      text: '✅ Tekshirish',
+      callback_data: 'verify_join',
     },
   ]);
-  rows.push([{ text: '✅ Tekshirish', callback_data: 'verify_join' }]);
+
+  return { inline_keyboard: rows };
+}
+
+/**
+ * ❗ NOT JOINED CHANNELS
+ */
+export function notJoinedKeyboard(channels = [], notJoinedIndexes = []) {
+  if (!Array.isArray(channels)) channels = [];
+  if (!Array.isArray(notJoinedIndexes)) notJoinedIndexes = [];
+
+  const rows = notJoinedIndexes.map((i) => {
+    const ch = channels[i] || {};
+    const title = truncateLabel(ch.title || ch.chatIdOrUsername || 'Channel');
+
+    return [
+      {
+        text: `❌ ${title}`,
+        url: ch.inviteLink,
+      },
+    ];
+  });
+
+  rows.push([
+    {
+      text: '🔄 Qayta tekshirish',
+      callback_data: 'verify_join',
+    },
+  ]);
+
   return { inline_keyboard: rows };
 }
 
@@ -40,7 +89,7 @@ export function mainMenuKeyboard() {
 }
 
 /**
- * Admin paneli menyusi
+ * Admin paneli
  */
 export function adminPanelKeyboard() {
   return {
@@ -56,7 +105,7 @@ export function adminPanelKeyboard() {
 }
 
 /**
- * Admin kanallarini boshqarish menyusi
+ * Channel admin menyu
  */
 export function adminChannelsKeyboard() {
   return {
@@ -69,23 +118,33 @@ export function adminChannelsKeyboard() {
 }
 
 /**
- * Film ro'yxati tugmalari
+ * Filmlar listi
  */
-export function moviesListKeyboard(movies, prefix = 'mv:') {
+export function moviesListKeyboard(movies = [], prefix = 'mv:') {
+  if (!Array.isArray(movies)) movies = [];
+
   const rows = movies.map((m) => [
     {
-      text: truncateLabel(`${m.title} (${m.code || ''})`),
+      text: truncateLabel(`${m.title || 'Movie'} (${m.code || ''})`),
       callback_data: `${prefix}${String(m._id)}`,
     },
   ]);
+
   return { inline_keyboard: rows };
 }
 
 /**
- * Bekor qilish tugmasi
+ * Cancel tugmasi
  */
 export function cancelKeyboard() {
   return {
-    inline_keyboard: [[{ text: '✖️ Cancel', callback_data: 'flow_cancel' }]],
+    inline_keyboard: [
+      [
+        {
+          text: '✖️ Cancel',
+          callback_data: 'flow_cancel',
+        },
+      ],
+    ],
   };
 }
