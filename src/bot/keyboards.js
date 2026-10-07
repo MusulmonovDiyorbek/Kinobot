@@ -1,150 +1,33 @@
-// src/bot/keyboards.js
-
-/**
- * Matnni maksimal uzunlikka kesadi
- */
-function truncateLabel(s, max = 52) {
-  const t = String(s || '');
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-}
-
-/**
- * 🔥 REQUIRED CHANNELS KEYBOARD
- * - Public → link orqali join
- * - Private → link + Opened (tracking uchun)
- */
-export function requiredChannelsKeyboard(channels = []) {
-  if (!Array.isArray(channels)) channels = [];
-
-  const rows = channels.map((ch, index) => {
-    const title = truncateLabel(ch.title || ch.chatIdOrUsername || 'Channel');
-
-    return [
-      {
-        text: `➕ ${title}`,
-        url: ch.inviteLink, // kanalga kirish
-      },
-      {
-        text: '✔️ Opened',
-        callback_data: `join_${index}`, // 🔥 PRIVATE TRACK
-      },
-    ];
-  });
-
-  // Tekshirish tugmasi
-  rows.push([
-    {
-      text: '✅ Tekshirish',
-      callback_data: 'verify_join',
-    },
-  ]);
-
-  return { inline_keyboard: rows };
-}
-
-/**
- * ❗ NOT JOINED CHANNELS
- */
-export function notJoinedKeyboard(channels = [], notJoinedIndexes = []) {
-  if (!Array.isArray(channels)) channels = [];
-  if (!Array.isArray(notJoinedIndexes)) notJoinedIndexes = [];
-
-  const rows = notJoinedIndexes.map((i) => {
-    const ch = channels[i] || {};
-    const title = truncateLabel(ch.title || ch.chatIdOrUsername || 'Channel');
-
-    return [
-      {
-        text: `❌ ${title}`,
-        url: ch.inviteLink,
-      },
-    ];
-  });
-
-  rows.push([
-    {
-      text: '🔄 Qayta tekshirish',
-      callback_data: 'verify_join',
-    },
-  ]);
-
-  return { inline_keyboard: rows };
-}
-
-/**
- * Asosiy menyu
- */
-export function mainMenuKeyboard() {
-  return {
-    inline_keyboard: [
-      [{ text: '🔍 Search by name', callback_data: 'menu_search_name' }],
-      [{ text: '🔢 Search by code', callback_data: 'menu_search_code' }],
-      [{ text: '🔥 Top movies', callback_data: 'menu_top' }],
-      [{ text: '🆕 Last movies', callback_data: 'menu_last' }],
-      [{ text: '🎲 Random', callback_data: 'menu_rand' }],
-      [{ text: '❓ Help', callback_data: 'menu_help' }],
-      [{ text: '👨‍💻 Dev', callback_data: 'menu_dev' }],
-    ],
-  };
-}
-
-/**
- * Admin paneli
- */
-export function adminPanelKeyboard() {
-  return {
-    inline_keyboard: [
-      [{ text: '➕ Add movie', callback_data: 'adm_add' }],
-      [{ text: '➖ Delete movie', callback_data: 'adm_del' }],
-      [{ text: '📣 Broadcast', callback_data: 'adm_broadcast' }],
-      [{ text: '📢 Channels', callback_data: 'adm_channels' }],
-      [{ text: '📊 Stats', callback_data: 'adm_stats' }],
-      [{ text: '✖️ Close', callback_data: 'adm_close' }],
-    ],
-  };
-}
-
-/**
- * Channel admin menyu
- */
-export function adminChannelsKeyboard() {
-  return {
-    inline_keyboard: [
-      [{ text: '➕ Add channel', callback_data: 'adm_ch_add' }],
-      [{ text: '➖ Remove channel', callback_data: 'adm_ch_rem' }],
-      [{ text: '⬅️ Back', callback_data: 'adm_back' }],
-    ],
-  };
-}
-
-/**
- * Filmlar listi
- */
-export function moviesListKeyboard(movies = [], prefix = 'mv:') {
-  if (!Array.isArray(movies)) movies = [];
-
-  const rows = movies.map((m) => [
-    {
-      text: truncateLabel(`${m.title || 'Movie'} (${m.code || ''})`),
-      callback_data: `${prefix}${String(m._id)}`,
-    },
-  ]);
-
-  return { inline_keyboard: rows };
-}
-
-/**
- * Cancel tugmasi
- */
-export function cancelKeyboard() {
-  return {
-    inline_keyboard: [
-      [
-        {
-          text: '✖️ Cancel',
-          callback_data: 'flow_cancel',
-        },
-      ],
-    ],
-  };
-}
+const label = s => String(s).slice(0, 54);
+export const mainMenuKeyboard = () => ({ inline_keyboard: [
+  [{ text: '🔍 Film qidiruv', callback_data: 'menu_search' }, { text: '🔎 Inline qidiruv', switch_inline_query_current_chat: '' }],
+  [{ text: '🔥 Top filmlar', callback_data: 'menu_top' }, { text: '🆕 Yangi filmlar', callback_data: 'menu_last' }],
+  [{ text: '🔖 Saqlanganlar', callback_data: 'favorites:0' }, { text: '🎲 Random', callback_data: 'menu_rand' }],
+  [{ text: '⭐ VIP', callback_data: 'menu_vip' }, { text: '❓ Yordam olish', callback_data: 'menu_help' }],
+] });
+export const adminPanelKeyboard = () => ({ inline_keyboard: [
+  [{ text: '➕ Kino qo‘shish', callback_data: 'adm_add' }, { text: '🗑 Kino o‘chirish', callback_data: 'adm_del' }],
+  [{ text: '📢 Majburiy kanallar', callback_data: 'adm_channels' }, { text: '📊 Statistika', callback_data: 'adm_stats' }],
+  [{ text: '📣 Broadcast', callback_data: 'adm_broadcast' }, { text: '⭐ VIP boshqarish', callback_data: 'adm_vip' }],
+  [{ text: '👥 Kanal so‘rovlari', callback_data: 'adm_requests' }, { text: '🎞 Start GIF', callback_data: 'adm_gif' }],
+  [{ text: '✖️ Yopish', callback_data: 'adm_close' }],
+] });
+export const adminChannelsKeyboard = channels => ({ inline_keyboard: [
+  [{ text: '➕ Kanal qo‘shish', callback_data: 'adm_ch_add' }],
+  ...channels.map(c => [{ text: `🗑 ${label(c.title)}`, callback_data: `chdel:${c._id}` }]),
+  [{ text: '⬅️ Admin panel', callback_data: 'adm_back' }],
+] });
+export const requiredChannelsKeyboard = channels => ({ inline_keyboard: [
+  ...channels.map(c => [{ text: `➕ ${label(c.title)}`, url: c.inviteLink }]),
+  [{ text: '✅ Tekshirish', callback_data: 'verify_join' }],
+] });
+export const moviesListKeyboard = (movies, extra = []) => ({ inline_keyboard: [
+  ...movies.map(m => [{ text: label(`${m.vipOnly ? '⭐ ' : ''}${m.title} (${m.code})`), callback_data: `mv:${m._id}` }]), ...extra,
+  [{ text: '🏠 Menyu', callback_data: 'menu_home' }],
+] });
+export const cancelKeyboard = () => ({ inline_keyboard: [[{ text: '✖️ Bekor qilish', callback_data: 'flow_cancel' }]] });
+export const confirmationKeyboard = action => ({ inline_keyboard: [[{ text: '✅ Tasdiqlash', callback_data: action }, { text: '✖️ Bekor qilish', callback_data: 'flow_cancel' }]] });
+export const movieActionsKeyboard = (id, saved = false) => ({ inline_keyboard: [
+  [{ text: saved ? '🗑 Saqlanganlardan olish' : '🔖 Saqlash', callback_data: `${saved ? 'unsave' : 'save'}:${id}` }, { text: '📤 Ulashish', switch_inline_query: '' }],
+  [{ text: '🏠 Menyu', callback_data: 'menu_home' }],
+] });

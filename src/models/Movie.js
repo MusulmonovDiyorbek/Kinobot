@@ -9,6 +9,8 @@ const movieSchema = new mongoose.Schema(
     genre: { type: String, default: '' },
     year: { type: Number, default: null },
     views: { type: Number, default: 0, index: true },
+    vipOnly: { type: Boolean, default: false },
+    posterUrl: { type: String, default: '' },
     posterFileId: { type: String, default: '' },
     /** Primary file for inline / send (video or document file_id) */
     telegramFileId: { type: String, default: '' },
@@ -21,7 +23,7 @@ const movieSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-movieSchema.index({ title: 'text', description: 'text' });
+movieSchema.index({ title: 'text', description: 'text' }, { default_language: 'none', language_override: 'searchLanguage' });
 movieSchema.index({ createdAt: -1 });
 
 export const Movie = mongoose.models.Movie || mongoose.model('Movie', movieSchema);

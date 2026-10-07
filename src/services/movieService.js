@@ -12,27 +12,18 @@ function normalizeCode(code) {
   return String(code).trim().toUpperCase();
 }
 
+export function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 function buildCaption(movie) {
   const lines = [
-    `<b>${escapeHtml(movie.title)}</b>`,
-    movie.description ? `${escapeHtml(movie.description)}` : '',
-    [
-      movie.language && `🌐 ${escapeHtml(movie.language)}`,
-      movie.genre && `📁 ${escapeHtml(movie.genre)}`,
-      movie.year && `📅 ${movie.year}`,
-    ]
-      .filter(Boolean)
-      .join(' · '),
-    `\n👁 ${movie.views ?? 0} ko‘rish`,
-  ].filter(Boolean);
-  return lines.join('\n\n');
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    `<b>${escapeHtml(String(movie.title).slice(0, 120))}</b>`,
+    escapeHtml(String(movie.description || '').slice(0, 500)),
+    [movie.language && `🌐 ${escapeHtml(String(movie.language).slice(0, 40))}`, movie.genre && `📁 ${escapeHtml(String(movie.genre).slice(0, 60))}`, movie.year && `📅 ${movie.year}`].filter(Boolean).join(' · '),
+    `🔢 Kod: <code>${escapeHtml(movie.code)}</code>`,
+    movie.vipOnly ? '⭐ VIP kino' : '', `👁 ${movie.views ?? 0} ko‘rish`,
+  ];
+  return lines.filter(Boolean).join('\n\n');
 }
 
 export const movieService = {
@@ -47,6 +38,8 @@ export const movieService = {
       language: data.language || '',
       genre: data.genre || '',
       year: data.year ?? null,
+      vipOnly: Boolean(data.vipOnly),
+      posterUrl: data.posterUrl || '',
       posterFileId: data.posterFileId || '',
       telegramFileId: data.telegramFileId || '',
       isDocument: Boolean(data.isDocument),
@@ -72,8 +65,7 @@ export const movieService = {
   },
 
   invalidateLists() {
-    cacheService.del(TOP_KEY);
-    cacheService.del(LAST_KEY);
+    for (const key of cacheService.keys()) if (key.startsWith('movies:top:') || key.startsWith('movies:last:')) cacheService.del(key);
   },
 
   async findByCode(code) {
@@ -88,7 +80,7 @@ export const movieService = {
   },
 
   async searchByName(query, limit = 20) {
-    const q = String(query).trim();
+    const q = String(query).trim().slice(0, 120);
     if (!q) return [];
 
     const tokens = q.split(/\s+/).filter(Boolean);
@@ -114,6 +106,8 @@ export const movieService = {
         .lean();
     }
 
+    // A misspelled title may produce no text/regex candidates. Bound fuzzy fallback cost.
+    if (!docs.length) docs = await Movie.find().sort({ views: -1 }).limit(500).lean();
     const ranked = docs
       .map((d) => ({
         doc: d,
@@ -124,6 +118,7 @@ export const movieService = {
           )
         ),
       }))
+      .filter(r => r.score >= 55)
       .sort((a, b) => b.score - a.score || (b.doc.views ?? 0) - (a.doc.views ?? 0))
       .slice(0, limit)
       .map((r) => r.doc);
@@ -137,20 +132,22 @@ export const movieService = {
   },
 
   async topMovies(limit = 10) {
-    const hit = cacheService.get(TOP_KEY);
+    const key = `${TOP_KEY}:${limit}`;
+    const hit = cacheService.get(key);
     if (hit) return hit;
 
     const docs = await Movie.find().sort({ views: -1, createdAt: -1 }).limit(limit).lean();
-    cacheService.set(TOP_KEY, docs, 40);
+    cacheService.set(key, docs, 40);
     return docs;
   },
 
   async lastMovies(limit = 10) {
-    const hit = cacheService.get(LAST_KEY);
+    const key = `${LAST_KEY}:${limit}`;
+    const hit = cacheService.get(key);
     if (hit) return hit;
 
     const docs = await Movie.find().sort({ createdAt: -1 }).limit(limit).lean();
-    cacheService.set(LAST_KEY, docs, 40);
+    cacheService.set(key, docs, 40);
     return docs;
   },
 

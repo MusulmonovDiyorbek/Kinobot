@@ -1,98 +1,125 @@
-# Kinobot — Telegram movie bot
+# Kinobot
 
-Production-oriented Telegram bot (Node.js ES modules, Express, MongoDB/Mongoose, `node-telegram-bot-api`) for publishing movies by code/name, inline search with cached `file_id`, mandatory channel membership, admin tools, and broadcast ads.
+O‘zbek Telegram kino bot: Node.js 22+, MongoDB, Express va Telegram Bot API.
 
-## Prerequisites
+## Funksiyalar
 
-- Node.js **18+**
-- MongoDB **6+** (local or Atlas)
-- A Telegram bot token from [@BotFather](https://t.me/BotFather)
+- `/start`: salomlashish, sozlanadigan GIF va o‘zbekcha menyu.
+- Kino kodi, nomi va kichik imlo xatolari bo‘yicha qidiruv.
+- `/top`, `/last`, `/rand`, `/saved`, `/vip`, `/help`, `/dev`, `/cancel`.
+- Inline rejim: `@bot_username kino` orqali sarlavha/yil kartasi va botga kino havolasi. Ochiq HTTPS poster URL berilgan bo‘lsa, kartada rasm chiqadi.
+- Kino yuborish: Telegram video/document `file_id`; katta faylni serverga qayta yuklash talab qilinmaydi.
+- Saqlangan kinolar, VIP kinolar va muddati tugaydigan VIP a’zolik.
+- Majburiy public/private kanallar, haqiqiy a’zolik va Telegram join-request tekshiruvi.
+- Admin panel: kino qo‘shish/o‘chirish, kanallar, statistika, broadcast, GIF, VIP, so‘rovlarni qabul/rad qilish.
+- MongoDB’da saqlanadigan 30 daqiqalik admin sessiyalari va davom ettiriladigan broadcast navbati.
+- Webhook maxfiy kaliti, update deduplikatsiyasi, per-user ketma-ket ishlov, rate limit va maxfiylikni saqlaydigan loglar.
 
-## Quick start
+## Muhim
 
-1. **Clone / copy** the project and install dependencies:
+Avvalgi ochiq repoda `.env` bo‘lgan. BotFather’da eski tokenni `/revoke` qilib almashtiring. `.env`ni yangi koddan olib tashlash eski Git tarixidagi tokenni yo‘q qilmaydi. Eski tokenni ishlatmang.
 
-   ```bash
-   cd Kinobot
-   npm install
-   ```
+## Render
 
-2. **Environment** — copy `.env.example` to `.env` and fill in real values:
+`render.yaml` Blueprint tayyor; bot tashqi MongoDB Atlas bazasidan foydalanadi. Render xizmati to‘g‘ridan-to‘g‘ri ham yaratilishi mumkin:
 
-   - `BOT_TOKEN` — from BotFather.
-   - `ADMIN_IDS` — comma-separated numeric Telegram user IDs (Profile → copy id via bots such as [@userinfobot](https://t.me/userinfobot)).
-   - `MONGODB_URI` — e.g. `mongodb://127.0.0.1:27017/kinobot` or an Atlas connection string.
+- Runtime: Node; build: `npm ci --omit=dev`; start: `npm start`.
+- `BOT_MODE=webhook`, `NODE_ENV=production`.
+- `BOT_TOKEN`: yangi BotFather tokeni.
+- `ADMIN_IDS`: vergul bilan ajratilgan musbat Telegram user IDlari.
+- `MONGODB_URI`: MongoDB Atlas database user ulanish URI; mahalliy `127.0.0.1` ishlamaydi.
+- `WEBHOOK_SECRET`: 32–256 ta harf/raqam/`_`/`-`. Blueprint o‘zi generatsiya qiladi.
+- `SUPPORT_USERNAME`: yordam/VIP uchun Telegram username, `@`siz (ixtiyoriy).
 
-3. **BotFather configuration**
+Render `RENDER_EXTERNAL_URL`ni beradi; `WEBHOOK_URL`ni qo‘lda kiritish shart emas. Boshqa serverda HTTPS manzilni `WEBHOOK_URL`ga yozing.
 
-   - Create the bot and save the token.
-   - Enable **Inline mode** (Bot Settings → Inline Mode → Turn on). Without this, `@yourbot query` will not work.
-   - Optional: set a bot profile picture and description.
+MongoDB Atlas’da database user yarating, Connect → Drivers orqali URI oling va paroldagi maxsus belgilarni URL-encode qiling. Atlas Network Access’da Render xizmatining outbound IP diapazonlariga ruxsat bering (Render → Connect → Outbound). Atlas saytiga kirish paroli bilan database user paroli boshqa-boshqa.
 
-4. **Run**
+`/live` — HTTP jarayoni tirikligini tekshiradi. `/health` — MongoDB va Telegram ulanishi tayyor bo‘lsa **200**, aks holda **503**. Secretlar yetishmasa HTTP ochiladi, ammo bot tayyor deb ko‘rsatilmaydi. Env qiymatlari qo‘shilganda xizmatni qayta deploy qiling.
 
-   ```bash
-   npm start
-   ```
+Render bepul web xizmatlari bo‘sh turganda uxlaydi. Webhook uyg‘otishi mumkin, ilk javob kechikadi. Uxlayotgan paytda broadcast navbati ishlamaydi; qayta uyg‘onganda davom etadi. Doimiy, tezkor ishlash uchun doim ishlaydigan xizmat kerak. Faqat bitta instance ishlating.
 
-   - Default **HTTP** port: `3000` (health: `GET /health`).
-   - With `WEBHOOK_URL` empty, the bot uses **long polling** (simplest for a single process).
-   - With `WEBHOOK_URL=https://your-domain.example.com` and a valid TLS certificate, the app calls `setWebHook` to `{WEBHOOK_URL}{WEBHOOK_PATH}` (default path `/telegram/webhook`). Your reverse proxy must forward POST requests to that path with a JSON body.
+## BotFather
 
-5. **Mandatory channels**
+1. `/setinline` → botni tanlang → `Kino nomi yoki kodini yozing`.
+2. Bot username’ini o‘zgartirsangiz xizmatni restart qiling.
+3. Buyruqlar ro‘yxati ishga tushganda avtomatik o‘rnatiladi.
+4. Botni majburiy kanallarga administrator qiling. Private so‘rovlari uchun **Invite users** huquqini bering.
 
-   - Open `/admin` in a **private chat** with the bot (only listed `ADMIN_IDS` get a response).
-   - Use **Channels → Add channel** with format:
-     `chat_id | https://t.me/+inviteOrPublicLink | Title`
-   - The bot must be able to call `getChatMember` on `chat_id` (numeric `-100…` or `@username` as stored). Add the bot as member/admin in the channel if the API requires it.
+## Admin
 
-6. **Add movies**
+`/admin` faqat `ADMIN_IDS`dagi foydalanuvchi bilan shaxsiy chatda ishlaydi.
 
-   - `/admin` → Add movie → follow prompts (title, code, metadata, poster photo optional, then **video/document** or **forward** from a channel).
-   - **Inline results** require a non-empty `telegramFileId` (video/document). The admin upload/forward step fills this automatically.
+**Kino qo‘shish:** nom → kod → `Yil | Til | Janr | free/vip` → tavsif yoki `-` → poster fotosi/HTTPS URL/`-` → video/document → tasdiqlash.
 
-## MongoDB collections (schemas)
+Misol: `2014 | O‘zbek | Fantastika | free`.
 
-| Collection  | Model    | Purpose |
-|------------|----------|---------|
-| `users`    | `User`   | Telegram users, blocked flag, last `/start` / ad timestamps. |
-| `movies`   | `Movie`  | Metadata, views, `telegramFileId`, optional `channelId` + `channelMessageId`, `posterFileId`. |
-| `channels` | `Channel`| Required subscriptions + invite links. |
-| `ads`      | `Ad`     | Latest active broadcast template (text + optional photo). |
-
-Indexes are created/updated on startup via `syncIndexes()`:
-
-- `Movie`: **unique** `code`, **text** index on `title` + `description`, `views`, `createdAt`.
-- Others: see `src/models/*.js`.
-
-## Caching
-
-- `node-cache` wraps hot reads: movie by code, top/last lists, required channels, stats summary (short TTLs). Mutations invalidate relevant keys.
-
-## Security notes
-
-- `/admin` and callbacks under the admin panel **do nothing** for users not in `ADMIN_IDS`.
-- Prefer **webhook + HTTPS** in production; keep the token only in `.env`.
-- Tune `AD_BROADCAST_INTERVAL_MINUTES` to avoid spam; `0` disables the scheduled ad loop (manual broadcast from admin panel still works).
-
-## Project layout
+**Kanal qo‘shish:**
 
 ```text
-src/
-  bot/           createBot, registerHandlers, keyboards
-  config/        env loading + validation
-  controllers/   HTTP helpers (health)
-  middlewares/   Express error handlers
-  models/        Mongoose schemas
-  routes/        Express routes
-  services/      movies, users, channels, ads, cache, broadcast, etc.
-  app.js         Express app factory
-  server.js      DB connect, bot, HTTP listen, scheduled jobs
+@public_username | auto | Kanal nomi | public | member
+-1001234567890 | auto | Shaxsiy kanal | private | member
+-1001234567890 | auto | So‘rovli kanal | private | request
 ```
 
-## Troubleshooting
+`auto` private kanal uchun botning o‘z join-request havolasini yaratadi; shu variant tavsiya etiladi. Qo‘lda link kiritilsa u to‘g‘ri kanalniki va so‘rov yuboradigan link ekanini admin tekshiradi.
 
-- **`getChatMember` fails** — wrong `chat_id`, bot not in channel, or channel is private without bot membership.
-- **Inline shows nothing** — query empty, or movies missing `telegramFileId`.
-- **404 on polling** — invalid `BOT_TOKEN`.
-- **Mongo connection errors** — check `MONGODB_URI` and that MongoDB is reachable.
+- `member`: faqat Telegram tasdiqlagan haqiqiy a’zolik kirish beradi. Admin → Kanal so‘rovlari → Qabul qilish/Rad qilish.
+- `request`: haqiqiy `chat_join_request` yuborgan odamga so‘rov kutilayotgan vaqtida 24 soat kirish beradi. Rad etilgan/chiqib ketgan/bloklangan odam o‘tmaydi. “Opened” bosish hech qanday huquq bermaydi.
+- Kanalning eski `joinedUsers` ma’lumotlari kirish dalili sifatida ishlatilmaydi.
+
+**VIP:**
+
+```text
+/vipgive 123456789 30
+/vipremove 123456789
+/movievip 101 on
+/movievip 101 off
+```
+
+Foydalanuvchi oldin `/start` bosgan bo‘lishi kerak. VIP to‘lovi avtomatlashtirilmagan: admin to‘lovni tekshirib muddat beradi.
+
+**Broadcast:** xabar yuborish → preview → tasdiqlash. Navbat MongoDB’da saqlanadi. 429 cheklovlarida qayta uriniladi; botni bloklaganlar belgilanadi. Xizmat restart bo‘lsa taxminan ikki daqiqalik lease tugagach navbat davom etadi. Jarayon Telegramga yuborib, checkpoint saqlash orasida o‘chsa, oxirgi xabar takrorlanishi mumkin (at-least-once).
+
+**Start GIF:** `/admin` → Start GIF → animation/GIF yuboring. Yoki `START_GIF_FILE_ID` environment variable. GIF sozlanmagan bo‘lsa salomlashish matn bilan chiqadi.
+
+## Inline va majburiy obuna
+
+Inline karta chatga kino havolasini yuboradi. Videoning o‘zi shaxsiy bot chatida obuna va VIP tekshiruvidan keyin yuboriladi. Bu format katalogni ulashish orqali obunani chetlab o‘tishni oldini oladi. Telegram’dan olingan video foydalanuvchi tomonidan qayta ulashilishi mumkin; bot DRM emas.
+
+## Linux Mint / Docker
+
+```bash
+cp .env.example .env
+# .env ichida BOT_TOKEN, ADMIN_IDS, MONGODB_URI qiymatlarini kiriting
+npm ci
+npm start
+```
+
+Docker Compose MongoDB’ni lokal persistent volume bilan yaratadi:
+
+```bash
+cp .env.example .env
+# BOT_TOKEN va ADMIN_IDS ni kiriting; Compose MongoDB URI ni beradi
+docker compose up -d --build
+docker compose logs -f bot
+```
+
+MongoDB tashqi portga ochilmaydi, HTTP localhost:3000’da. Bitta token uchun polling va Render webhookni bir payt ishlatmang.
+
+## Tekshiruvlar
+
+```bash
+npm ci
+npm run check
+npm test
+npm audit --omit=dev
+```
+
+Integration testlar MongoDB 7 binary’sini birinchi safar yuklab olib, izolyatsiyalangan test bazasini yaratadi. Haqiqiy Telegram API testlarda mock qilingan: jonli token/baza bilan `/health`, `/start`, inline va kanal so‘rovini alohida sinash kerak.
+
+## Ma’lumotlar va texnik chegaralar
+
+`users`, `movies`, `channels`, `joinrequests`, `sessions`, `broadcasts`, `settings`, `updatereceipts` MongoDB’da saqlanadi. Movie `code` unique. Ma’lum eski matn indeksi kerak bo‘lsa yangilanadi, boshqa indekslar o‘chirib tashlanmaydi. `language` kino metama’lumoti qidiruv stemmeri bilan aralashmaydi.
+
+Katta katalogda xato yozilgan nomlarni fuzzy qidirish 500 ta mashhur nom bilan cheklanadi; kattaroq katalog uchun Atlas Search alohida qo‘shiladi. Telegramga yuborish va MongoDB checkpoint bir atomik tranzaksiya emas; webhook qayta urinishida yoki crashda oxirgi tashqi amal takrorlanishi mumkin. MongoDB Atlas backuplarini sozlang; eski lokal bazadagi kinolar avtomatik ko‘chirilmaydi.

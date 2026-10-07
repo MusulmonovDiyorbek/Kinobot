@@ -10,6 +10,8 @@ const userSchema = new mongoose.Schema(
     isBlocked: { type: Boolean, default: false },
     lastStartAt: { type: Date },
     lastAdSentAt: { type: Date },
+    favorites: { type: [mongoose.Schema.Types.ObjectId], ref: 'Movie', default: [] },
+    vipUntil: { type: Date, default: null },
   },
   { timestamps: true }
 );

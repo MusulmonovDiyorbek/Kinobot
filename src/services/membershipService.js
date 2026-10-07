@@ -1,46 +1,23 @@
-// src/services/membershipService.js
-
-/**
- * 🔹 User barcha kanallarga join qilganini tekshiradi
- * - public → Telegram orqali real check
- * - private → faqat joinedUsers orqali (Opened bosilgan)
- *
- * @param {import('node-telegram-bot-api')} bot
- * @param {number} userId
- * @param {Array<{ chatIdOrUsername: string, type: 'public'|'private', joinedUsers?: number[] }>} channels
- * @returns {Promise<boolean>}
- */
-async function userJoinedAllChannels(bot, userId, channels) {
-  if (!Array.isArray(channels) || channels.length === 0) return true;
-
-  for (const ch of channels) {
-    // 🔥 PUBLIC CHANNEL
-    if (ch.type === 'public') {
-      try {
-        const member = await bot.getChatMember(ch.chatIdOrUsername, userId);
-        const status = member.status;
-
-        if (!['member', 'administrator', 'creator'].includes(status)) {
-          return false;
-        }
-      } catch (e) {
-        // Agar error bo‘lsa → user obuna emas deb hisoblanadi
-        return false;
-      }
-    }
-
-    // 🔥 PRIVATE CHANNEL
-    if (ch.type === 'private') {
-      // 🔑 MUHIM: faqat Opened bosilganini tekshiramiz
-      if (!Array.isArray(ch.joinedUsers) || !ch.joinedUsers.includes(userId)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
+import { JoinRequest } from '../models/JoinRequest.js';
+export function isMember(member) {
+  return ['member', 'administrator', 'creator'].includes(member?.status) || (member?.status === 'restricted' && member.is_member === true);
 }
-
+export async function getNotJoinedChannels(bot, userId, channels, findRequest = (chatId, uid) => JoinRequest.findOne({ chatId, userId: uid }).lean()) {
+  const missing = [];
+  for (const channel of channels) {
+    let member;
+    try { member = await bot.getChatMember(channel.chatIdOrUsername, userId); }
+    catch { missing.push(channel); continue; } // Configuration/API failure never unlocks content.
+    if (isMember(member)) continue;
+    if (channel.type === 'private' && channel.accessMode === 'request' && member.status !== 'kicked') {
+      const request = await findRequest(channel.chatIdOrUsername, userId);
+      if (request?.status === 'pending' && new Date(request.requestedAt).getTime() > Date.now() - 86400000) continue;
+    }
+    missing.push(channel);
+  }
+  return missing;
+}
 export const membershipService = {
-  userJoinedAllChannels,
+  getNotJoinedChannels,
+  async userJoinedAllChannels(bot, uid, channels) { return !(await getNotJoinedChannels(bot, uid, channels)).length; },
 };
