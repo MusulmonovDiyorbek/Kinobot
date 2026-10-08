@@ -16,12 +16,19 @@ export function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 function buildCaption(movie) {
+  const safe = (value, limit) => escapeHtml(Array.from(String(value ?? '')).slice(0, limit).join(''));
+  const description = safe(movie.description, 500);
+  const details = [
+    movie.year && `📅 <b>${safe(movie.year, 4)}</b>`,
+    movie.language && `🎙 ${safe(movie.language, 40)}`,
+  ].filter(Boolean).join('  ·  ');
   const lines = [
-    `<b>${escapeHtml(String(movie.title).slice(0, 120))}</b>`,
-    escapeHtml(String(movie.description || '').slice(0, 500)),
-    [movie.language && `🌐 ${escapeHtml(String(movie.language).slice(0, 40))}`, movie.genre && `📁 ${escapeHtml(String(movie.genre).slice(0, 60))}`, movie.year && `📅 ${movie.year}`].filter(Boolean).join(' · '),
-    `🔢 Kod: <code>${escapeHtml(movie.code)}</code>`,
-    movie.vipOnly ? '⭐ VIP kino' : '', `👁 ${movie.views ?? 0} ko‘rish`,
+    `🎞 <b>FILMDAHAYOT</b>  /  ${movie.vipOnly ? '💎 VIP' : '◉ BEPUL'}`,
+    `<b>${safe(movie.title, 120)}</b>`,
+    [details, movie.genre && `🎭 ${safe(movie.genre, 60)}`].filter(Boolean).join('\n'),
+    description && `<blockquote>${description}</blockquote>`,
+    `🎟 <b>Kino kodi:</b> <code>${safe(movie.code, 32)}</code>  ·  👁 ${safe(movie.views ?? 0, 15)}`,
+    '<i>Har bir film — boshqa bir hayot.</i>',
   ];
   return lines.filter(Boolean).join('\n\n');
 }
